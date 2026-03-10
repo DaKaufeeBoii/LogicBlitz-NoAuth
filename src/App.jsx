@@ -770,15 +770,46 @@ function TakeQuiz({ user, go, quiz }) {
       const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
       if (!inFs) {
         fsCountRef.current += 1;
-        if (fsCountRef.current >= 2) setTimeout(() => submit(true), 500);
+        if (fsCountRef.current >= 3) setTimeout(() => submit(true), 500);
         else setFsModal(true);
       }
     };
+
+    const onKeyDown = (e) => {
+      if (doneRef.current) return;
+      const forbiddenKeys = ["F5", "F11", "F12"];
+      const isForbiddenCombo =
+        (e.ctrlKey && (e.key === "r" || e.key === "w" || e.key === "t" || e.key === "u")) ||
+        (e.ctrlKey && e.shiftKey && (e.key === "R" || e.key === "I" || e.key === "J")) ||
+        (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) ||
+        e.metaKey;
+
+      if (forbiddenKeys.includes(e.key) || isForbiddenCombo) {
+        e.preventDefault();
+        e.stopPropagation();
+        fsCountRef.current += 1;
+        if (fsCountRef.current >= 3) { setTimeout(() => submit(true), 500); }
+        else { setFsModal(true); }
+      }
+    };
+
+    const onBlur = () => {
+      if (doneRef.current) return;
+      fsCountRef.current += 1;
+      if (fsCountRef.current >= 3) { setTimeout(() => submit(true), 500); }
+      else { setFsModal(true); }
+    };
+
     document.addEventListener("fullscreenchange", onChange);
     document.addEventListener("webkitfullscreenchange", onChange);
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("blur", onBlur);
+
     return () => {
       document.removeEventListener("fullscreenchange", onChange);
       document.removeEventListener("webkitfullscreenchange", onChange);
+      document.removeEventListener("keydown", onKeyDown, { capture: true });
+      window.removeEventListener("blur", onBlur);
       try { if (document.fullscreenElement) document.exitFullscreen(); } catch { }
     };
   }, []);
@@ -872,8 +903,8 @@ function TakeQuiz({ user, go, quiz }) {
           <div style={{ fontSize: "2.2rem", marginBottom: "0.6rem" }}>🚨</div>
           <h2 style={{ color: "#ffc800", fontWeight: 800, marginBottom: "0.5rem" }}>Fullscreen Warning!</h2>
           <p style={{ color: "#99a", fontSize: "0.82rem", marginBottom: "1.1rem", lineHeight: 1.6 }}>
-            You exited fullscreen. <strong style={{ color: "#fff" }}>Warning 1 of 2.</strong><br />
-            A second exit will <strong style={{ color: "#e94560" }}>auto-submit</strong> your quiz.
+            You lost focus or used a forbidden shortcut. <strong style={{ color: "#fff" }}>Warning {fsCountRef.current} of 2.</strong><br />
+            A third violation will <strong style={{ color: "#e94560" }}>auto-submit</strong> your quiz.
           </p>
           <button className="btn btn-red btn-full" onClick={reFs}><Ic n="maximize" s={15} /> Back to Fullscreen</button>
         </div>
@@ -908,31 +939,39 @@ function Results({ user, go, res }) {
         </div>
 
         <div className="shead" style={{ marginBottom: "0.6rem" }}>Review</div>
-        <div className="stack" style={{ marginBottom: "1.1rem" }}>
-          {quiz.questions.map((q, i) => {
-            const ua = answers[i], ok = ua === q.correctIndex;
-            return (
-              <div key={i} className="card" style={{ padding: "0.85rem", borderColor: ok ? "rgba(0,220,100,0.18)" : "rgba(233,69,96,0.18)" }}>
-                <div className="row" style={{ marginBottom: "0.5rem", alignItems: "flex-start" }}>
-                  <span style={{ width: 20, height: 20, borderRadius: "50%", background: ok ? "rgba(0,220,100,0.12)" : "rgba(233,69,96,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                    <Ic n={ok ? "check" : "x"} s={11} c={ok ? "#00dc64" : "#e94560"} />
-                  </span>
-                  <span style={{ color: "#ccd", fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.4 }}>{q.text}</span>
+        {quiz.status === "active" ? (
+          <div className="card" style={{ padding: "1.5rem", textAlign: "center", borderColor: "rgba(255,200,0,0.18)", marginBottom: "1.1rem" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔒</div>
+            <div style={{ color: "#ffc800", fontWeight: 600, fontSize: "1rem" }}>Review Locked</div>
+            <div style={{ color: "#ccd", fontSize: "0.85rem", marginTop: "0.25rem" }}>Answers are hidden while the quiz is still active. Please wait for the admin to close the quiz.</div>
+          </div>
+        ) : (
+          <div className="stack" style={{ marginBottom: "1.1rem" }}>
+            {quiz.questions.map((q, i) => {
+              const ua = answers[i], ok = ua === q.correctIndex;
+              return (
+                <div key={i} className="card" style={{ padding: "0.85rem", borderColor: ok ? "rgba(0,220,100,0.18)" : "rgba(233,69,96,0.18)" }}>
+                  <div className="row" style={{ marginBottom: "0.5rem", alignItems: "flex-start" }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: ok ? "rgba(0,220,100,0.12)" : "rgba(233,69,96,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <Ic n={ok ? "check" : "x"} s={11} c={ok ? "#00dc64" : "#e94560"} />
+                    </span>
+                    <span style={{ color: "#ccd", fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.4 }}>{q.text}</span>
+                  </div>
+                  <div style={{ paddingLeft: "1.6rem", display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                    {q.options.map((o, oi) => {
+                      const isC = oi === q.correctIndex, isU = oi === ua;
+                      return (
+                        <span key={oi} style={{ fontSize: "0.72rem", padding: "0.18rem 0.55rem", borderRadius: 4, background: isC ? "rgba(0,220,100,0.09)" : isU && !isC ? "rgba(233,69,96,0.09)" : "transparent", color: isC ? "#00dc64" : isU && !isC ? "#e94560" : "#556", border: isC ? "1px solid rgba(0,220,100,0.22)" : isU && !isC ? "1px solid rgba(233,69,96,0.22)" : "1px solid transparent", fontWeight: isC || isU ? 600 : 400 }}>
+                          {String.fromCharCode(65 + oi)}. {o}{isC ? " ✓" : ""}{isU && !isC ? " ✗" : ""}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{ paddingLeft: "1.6rem", display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
-                  {q.options.map((o, oi) => {
-                    const isC = oi === q.correctIndex, isU = oi === ua;
-                    return (
-                      <span key={oi} style={{ fontSize: "0.72rem", padding: "0.18rem 0.55rem", borderRadius: 4, background: isC ? "rgba(0,220,100,0.09)" : isU && !isC ? "rgba(233,69,96,0.09)" : "transparent", color: isC ? "#00dc64" : isU && !isC ? "#e94560" : "#556", border: isC ? "1px solid rgba(0,220,100,0.22)" : isU && !isC ? "1px solid rgba(233,69,96,0.22)" : "1px solid transparent", fontWeight: isC || isU ? 600 : 400 }}>
-                        {String.fromCharCode(65 + oi)}. {o}{isC ? " ✓" : ""}{isU && !isC ? " ✗" : ""}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="g2">
           <button className="btn btn-red btn-full btn-lg" onClick={() => go("playerDash")}>Dashboard</button>
@@ -954,25 +993,34 @@ function Leaderboard({ user, go, qdata }) {
     const load = async () => {
       setLoading(true);
       if (isGlobal) {
-        const [scores, qs] = await Promise.all([getScores(), getQuizzes()]);
+        const [scores, qs, users] = await Promise.all([getScores(), getQuizzes(), getAllUsers()]);
         setQuizzes(qs);
         const best = {};
+        users.forEach(u => best[u.username] = { username: u.username, score: 0, total: 0 });
         scores.forEach(s => {
-          if (!best[s.username] || s.score / s.total > best[s.username].score / best[s.username].total) best[s.username] = s;
+          const sPct = s.total ? s.score / s.total : 0;
+          const bPct = best[s.username]?.total ? best[s.username].score / best[s.username].total : -1;
+          if (sPct > bPct) best[s.username] = s;
         });
-        setRows(Object.values(best).sort((a, b) => b.score / b.total - a.score / a.total));
+        setRows(Object.values(best).sort((a, b) => {
+          const pa = a.total ? a.score / a.total : 0;
+          const pb = b.total ? b.score / b.total : 0;
+          return pb - pa;
+        }));
       } else {
-        const scores = await getScoresByQuiz(qdata?.id);
+        const [scores, users] = await Promise.all([getScoresByQuiz(qdata?.id), getAllUsers()]);
         const best = {};
+        const qTotal = qdata?.questions ? qdata.questions.length : 0;
+        users.forEach(u => best[u.username] = { username: u.username, score: 0, total: qTotal });
         scores.forEach(s => {
-          if (!best[s.username] || s.score > best[s.username].score) best[s.username] = s;
+          if (!best[s.username] || best[s.username].score === 0 || s.score > best[s.username].score) best[s.username] = s;
         });
         setRows(Object.values(best).sort((a, b) => b.score - a.score));
       }
       setLoading(false);
     };
     load();
-  }, [isGlobal, qdata?.id]);
+  }, [isGlobal, qdata?.id, qdata?.questions]);
 
   const medals = ["🥇", "🥈", "🥉"];
   return (
@@ -994,7 +1042,7 @@ function Leaderboard({ user, go, qdata }) {
             </div>
             : <div className="stack">
               {rows.map((s, i) => {
-                const pct = Math.round((s.score / s.total) * 100);
+                const pct = s.total ? Math.round((s.score / s.total) * 100) : 0;
                 const isMe = s.username === user?.username;
                 const q = quizzes.find(x => x.id === s.quizId || x.id === s.quiz_id);
                 return (

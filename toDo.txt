@@ -1,0 +1,3 @@
+1. Disable browser shortcuts while quiz is running
+2. Warn the players first two times if they use the shorcuts. Thrid time, submit the quiz.
+3. Block answer reviews unless the quiz is over or closed by the admin.
