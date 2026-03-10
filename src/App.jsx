@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ADMIN, adminLogin, logoutUser,
-  getAllUsers, getQuizzes, getQuizByCode, createQuiz, updateQuiz,
+  getAllUsers, getQuizzes, getQuizByCode, getQuizById, createQuiz, updateQuiz,
   deleteQuiz, toggleQuizStatus, submitScore, getScores,
   getScoresByQuiz, getScoresByUser, hasAttempted,
 } from "./db";
@@ -418,28 +418,59 @@ function AdminDash({ user, go, toast, logout }) {
                 <div className="stack">
                   {quizzes.length === 0
                     ? <div className="card" style={{ textAlign: "center", padding: "2rem", color: "#334", fontSize: "0.85rem" }}>No quizzes yet — create one!</div>
-                    : quizzes.map(q => (
-                      <div key={q.id} className="card" style={{ padding: "0.9rem 1rem" }}>
-                        <div className="between">
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="row" style={{ flexWrap: "wrap", marginBottom: "0.25rem" }}>
-                              <span style={{ fontWeight: 700, color: "#fff", fontSize: "0.9rem" }}>{q.title}</span>
-                              <span className={`tag ${q.status === "active" ? "tg" : "tgr"}`}>{q.status}</span>
-                              <span className="code-chip">{q.code}</span>
-                            </div>
-                            <div style={{ fontSize: "0.73rem", color: "#556" }}>
-                              {q.questions?.length || 0} Qs · {q.timing_mode === "quiz" || q.timingMode === "quiz" ? `${q.quiz_time_limit || q.quizTimeLimit}s total` : q.timing_mode === "question" || q.timingMode === "question" ? "per-Q timer" : "no timer"} · {(q.allow_reattempts ?? q.allowReattempts ?? true) ? "♻ re-attempts on" : "🔒 one attempt"}
+                    : (
+                      <>
+                        <div className="shead" style={{ marginBottom: "0.5rem" }}>Active & Paused Quizzes</div>
+                        {quizzes.filter(q => q.status !== "closed").map(q => (
+                          <div key={q.id} className="card" style={{ padding: "0.9rem 1rem", marginBottom: "0.7rem" }}>
+                            <div className="between">
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className="row" style={{ flexWrap: "wrap", marginBottom: "0.25rem" }}>
+                                  <span style={{ fontWeight: 700, color: "#fff", fontSize: "0.9rem" }}>{q.title}</span>
+                                  <span className={`tag ${q.status === "active" ? "tg" : "tgr"}`}>{q.status}</span>
+                                  <span className="code-chip">{q.code}</span>
+                                </div>
+                                <div style={{ fontSize: "0.73rem", color: "#556" }}>
+                                  {q.questions?.length || 0} Qs · {q.timing_mode === "quiz" || q.timingMode === "quiz" ? `${q.quiz_time_limit || q.quizTimeLimit}s total` : q.timing_mode === "question" || q.timingMode === "question" ? "per-Q timer" : "no timer"} · {(q.allow_reattempts ?? q.allowReattempts ?? true) ? "♻ re-attempts on" : "🔒 one attempt"}
+                                </div>
+                              </div>
+                              <div className="row">
+                                <button className="btn btn-ghost btn-sm" onClick={() => toggle(q.id, q.status)}>{q.status === "active" ? "Close" : "Open"}</button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => go("editQuiz", q)}><Ic n="edit" s={13} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => go("leaderboard", q)}><Ic n="trophy" s={13} /></button>
+                                <button className="btn btn-ghost btn-sm" style={{ color: "#e94560" }} onClick={() => del(q.id)}><Ic n="trash" s={13} /></button>
+                              </div>
                             </div>
                           </div>
-                          <div className="row">
-                            <button className="btn btn-ghost btn-sm" onClick={() => toggle(q.id, q.status)}>{q.status === "active" ? "Close" : "Open"}</button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => go("editQuiz", q)}><Ic n="edit" s={13} /></button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => go("leaderboard", q)}><Ic n="trophy" s={13} /></button>
-                            <button className="btn btn-ghost btn-sm" style={{ color: "#e94560" }} onClick={() => del(q.id)}><Ic n="trash" s={13} /></button>
+                        ))}
+                        {quizzes.filter(q => q.status !== "closed").length === 0 && <div className="card" style={{ textAlign: "center", padding: "1rem", color: "#556", fontSize: "0.8rem", marginBottom: "0.7rem" }}>No active quizzes</div>}
+
+                        <div className="shead" style={{ marginTop: "0.5rem", marginBottom: "0.5rem" }}>Closed Quizzes</div>
+                        {quizzes.filter(q => q.status === "closed").map(q => (
+                          <div key={q.id} className="card" style={{ padding: "0.9rem 1rem", marginBottom: "0.7rem" }}>
+                            <div className="between">
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className="row" style={{ flexWrap: "wrap", marginBottom: "0.25rem" }}>
+                                  <span style={{ fontWeight: 700, color: "#fff", fontSize: "0.9rem" }}>{q.title}</span>
+                                  <span className={`tag ${q.status === "active" ? "tg" : "tgr"}`}>{q.status}</span>
+                                  <span className="code-chip">{q.code}</span>
+                                </div>
+                                <div style={{ fontSize: "0.73rem", color: "#556" }}>
+                                  {q.questions?.length || 0} Qs · {q.timing_mode === "quiz" || q.timingMode === "quiz" ? `${q.quiz_time_limit || q.quizTimeLimit}s total` : q.timing_mode === "question" || q.timingMode === "question" ? "per-Q timer" : "no timer"} · {(q.allow_reattempts ?? q.allowReattempts ?? true) ? "♻ re-attempts on" : "🔒 one attempt"}
+                                </div>
+                              </div>
+                              <div className="row">
+                                <button className="btn btn-ghost btn-sm" onClick={() => toggle(q.id, q.status)}>{q.status === "active" ? "Close" : "Open"}</button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => go("editQuiz", q)}><Ic n="edit" s={13} /></button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => go("leaderboard", q)}><Ic n="trophy" s={13} /></button>
+                                <button className="btn btn-ghost btn-sm" style={{ color: "#e94560" }} onClick={() => del(q.id)}><Ic n="trash" s={13} /></button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    ))
+                        ))}
+                        {quizzes.filter(q => q.status === "closed").length === 0 && <div className="card" style={{ textAlign: "center", padding: "1rem", color: "#556", fontSize: "0.8rem" }}>No closed quizzes</div>}
+                      </>
+                    )
                   }
                 </div>
               )}
@@ -916,6 +947,17 @@ function TakeQuiz({ user, go, quiz }) {
 /* ═══════════════════════════════════════════════════════════════════════════ RESULTS */
 function Results({ user, go, res }) {
   const { quiz, entry, answers } = res;
+  const [quizStatus, setQuizStatus] = useState(quiz.status);
+
+  useEffect(() => {
+    if (quizStatus !== "active") return;
+    const t = setInterval(async () => {
+      const q = await getQuizById(quiz.id);
+      if (q && q.status !== "active") setQuizStatus(q.status);
+    }, 3000);
+    return () => clearInterval(t);
+  }, [quiz.id, quizStatus]);
+
   const pct = Math.round((entry.score / entry.total) * 100);
   const g = pct >= 90 ? { l: "🏆 Excellent!", c: "#FFD700" } : pct >= 70 ? { l: "🎉 Great Job!", c: "#00dc64" } : pct >= 50 ? { l: "👍 Good Effort", c: "#ffc800" } : { l: "📚 Keep Going", c: "#e94560" };
 
@@ -939,7 +981,7 @@ function Results({ user, go, res }) {
         </div>
 
         <div className="shead" style={{ marginBottom: "0.6rem" }}>Review</div>
-        {quiz.status === "active" ? (
+        {quizStatus === "active" ? (
           <div className="card" style={{ padding: "1.5rem", textAlign: "center", borderColor: "rgba(255,200,0,0.18)", marginBottom: "1.1rem" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔒</div>
             <div style={{ color: "#ffc800", fontWeight: 600, fontSize: "1rem" }}>Review Locked</div>

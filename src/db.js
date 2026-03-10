@@ -138,6 +138,16 @@ export async function getQuizByCode(code) {
   return parseQuiz(data);
 }
 
+export async function getQuizById(id) {
+  const { data, error } = await supabase
+    .from("quizzes")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error || !data) return null;
+  return parseQuiz(data);
+}
+
 export async function createQuiz(quiz) {
   const code = Math.random().toString(36).substring(2, 7).toUpperCase();
   const { data, error } = await supabase
